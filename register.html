@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Create Account</title>
+
+    <link rel="stylesheet" href="css/style.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  </head>
+
+  <body>
+    <div class="auth-container">
+      <div class="card">
+        <h1>Create Account</h1>
+
+        <p>Register to start managing your tasks</p>
+
+        <input type="email" id="email" placeholder="Email" />
+
+        <input type="password" id="password" placeholder="Password" />
+
+        <button onclick="registerUser()">Create Account</button>
+
+        <div class="register-link">
+          <p>Already have an account?</p>
+
+          <a href="index.html"> Back to Login </a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/supabase.js"></script>
+    <script src="js/register.js"></script>
+  </body>
+</html>

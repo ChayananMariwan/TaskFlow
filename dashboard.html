@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>TaskFlow Dashboard</title>
+
+    <link rel="stylesheet" href="css/dashboard.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <div class="hero">
+          <div>
+            <h1>Welcome back</h1>
+            <p>You have <span id="pendingTasks">0</span> pending tasks</p>
+          </div>
+        </div>
+
+        <div class="user-section">
+          <button id="themeBtn" onclick="toggleTheme()">🌙</button>
+          <div class="user-info">
+            <span id="userEmail">Loading...</span>
+          </div>
+
+          <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <section class="stats">
+        <div class="card total-card">
+          <h3>Total Tasks</h3>
+          <p id="totalTasks">0</p>
+        </div>
+
+        <div class="card pending-card">
+          <h3>Pending</h3>
+          <p id="pendingTasks">0</p>
+        </div>
+
+        <div class="card progress-card">
+          <h3>In Progress</h3>
+          <p id="progressTasks">0</p>
+        </div>
+
+        <div class="card completed-card">
+          <h3>Completed</h3>
+          <p id="completedTasks">0</p>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Search task..."
+          oninput="filterTasks()"
+        />
+
+        <select id="statusFilter" onchange="filterTasks()">
+          <option value="All">All Status</option>
+
+          <option value="Pending">Pending</option>
+
+          <option value="In Progress">In Progress</option>
+
+          <option value="Completed">Completed</option>
+        </select>
+
+        <select id="sortFilter" onchange="filterTasks()">
+          <option value="newest">Newest</option>
+
+          <option value="oldest">Oldest</option>
+
+          <option value="priority">Priority</option>
+          <span class="priority ${task.priority.toLowerCase()}">
+            ${task.priority}
+          </span>
+        </select>
+        <button class="add-btn" onclick="openModal()">+ Add Task</button>
+      </section>
+
+      <section class="board">
+        <div class="column pending">
+          <h2>
+            Pending
+            <span id="pendingCount">0</span>
+          </h2>
+
+          <div
+            id="pendingColumn"
+            ondragenter="dragEnter(event)"
+            ondragleave="dragLeave(event)"
+            ondragover="allowDrop(event)"
+            ondrop="dropTask(event, 'Pending')"
+          ></div>
+        </div>
+
+        <div class="column progress">
+          <h2>In Progress</h2>
+
+          <div
+            id="progressColumn"
+            ondragenter="dragEnter(event)"
+            ondragleave="dragLeave(event)"
+            ondragover="allowDrop(event)"
+            ondrop="dropTask(event, 'In Progress')"
+          ></div>
+        </div>
+
+        <div class="column completed">
+          <h2>Completed</h2>
+          <div class="task-card ${completedClass}"></div>
+          <div
+            id="completedColumn"
+            ondragenter="dragEnter(event)"
+            ondragleave="dragLeave(event)"
+            ondragover="allowDrop(event)"
+            ondrop="dropTask(event, 'Completed')"
+          ></div>
+        </div>
+      </section>
+
+      <!-- Add Task Modal -->
+
+      <div id="taskModal" class="modal">
+        <div class="modal-content">
+          <h2>Create Task</h2>
+
+          <input type="text" id="title" placeholder="Task Title" />
+
+          <textarea id="description" placeholder="Description"></textarea>
+
+          <select id="category">
+            <option>Study</option>
+            <option>Work</option>
+            <option>Personal</option>
+            <option>Project</option>
+          </select>
+
+          <select id="priority">
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+
+          <select id="status">
+            <option>Pending</option>
+            <option>In Progress</option>
+            <option>Completed</option>
+          </select>
+
+          <input type="text" id="relatedPerson" placeholder="Related Person" />
+
+          <input type="date" id="dueDate" />
+
+          <div class="modal-buttons">
+            <button onclick="saveTask()">Save</button>
+
+            <button onclick="closeModal()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/supabase.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>
