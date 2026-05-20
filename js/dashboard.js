@@ -1,7 +1,10 @@
 let editingTaskId = null;
 let allTasks = [];
+let chartInstance = null;
 
-// User
+/* =========================
+   LOAD USER
+========================= */
 async function loadUser() {
   const {
     data: { user },
@@ -10,16 +13,32 @@ async function loadUser() {
   if (user) {
     document.getElementById("userEmail").textContent = user.email;
   }
+
+  const hour = new Date().getHours();
+
+  let greeting = "Good Evening";
+
+  if (hour < 12) greeting = "Good Morning";
+  else if (hour < 18) greeting = "Good Afternoon";
+
+  const name = user.email.split("@")[0];
+
+  document.getElementById("welcomeText").textContent =
+    `${greeting}, ${name} 👋`;
 }
 
-// Logout
+/* =========================
+   LOGOUT
+========================= */
 async function logout() {
   await supabaseClient.auth.signOut();
 
   window.location.href = "index.html";
 }
 
-// Open/Close Modal
+/* =========================
+   OPEN/CLOSE MODAL
+========================= */
 function openModal() {
   document.getElementById("taskModal").style.display = "flex";
 }
@@ -28,7 +47,9 @@ function closeModal() {
   document.getElementById("taskModal").style.display = "none";
 }
 
-// Save Task
+/* =========================
+   SAVE
+========================= */
 async function saveTask() {
   const {
     data: { user },
@@ -45,7 +66,13 @@ async function saveTask() {
   const category = document.getElementById("category").value;
   const priority = document.getElementById("priority").value;
   const status = document.getElementById("status").value;
-  const relatedPerson = document.getElementById("relatedPerson").value;
+  const tagsInput = document.getElementById("tagsInput").value;
+  const tags = tagsInput
+    ? tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t)
+    : [];
   const dueDate = document.getElementById("dueDate").value;
 
   if (!title) {
@@ -64,8 +91,8 @@ async function saveTask() {
         category,
         priority,
         status,
-        related_person: relatedPerson,
         due_date: dueDate,
+        tags,
       })
       .eq("id", editingTaskId);
 
@@ -79,8 +106,8 @@ async function saveTask() {
         category,
         priority,
         status,
-        related_person: relatedPerson,
         due_date: dueDate,
+        tags,
       },
     ]);
 
@@ -100,47 +127,99 @@ async function saveTask() {
 
   document.getElementById("title").value = "";
   document.getElementById("description").value = "";
-  document.getElementById("relatedPerson").value = "";
+  //document.getElementById("relatedPerson").value = "";
   document.getElementById("dueDate").value = "";
 
   closeModal();
   loadTasks();
 }
 
-// Load Task
+/* =========================
+   LOADTASK
+========================= */
 async function loadTasks() {
+  const {
+    data: { user },
+  } = await supabaseClient.auth.getUser();
+
   const { data, error } = await supabaseClient
     .from("tasks")
     .select("*")
+    .eq("user_id", user.id)
     .order("created_at", {
       ascending: false,
     });
 
   if (error) {
-    console.log(error);
+    console.error(error);
     return;
   }
 
-  allTasks = data;
+  allTasks = data || [];
+
+  const emptyDashboard = document.getElementById("emptyDashboard");
+  const taskBoard = document.getElementById("taskBoard");
+  const chartSection = document.getElementById("chartSection");
+  const statsSection = document.getElementById("statsSection");
+  const toolbar = document.querySelector(".toolbar");
+
+  if (allTasks.length === 0) {
+    emptyDashboard.style.display = "flex";
+    taskBoard.style.display = "none";
+    chartSection.style.display = "none";
+    statsSection.style.display = "none";
+    toolbar.style.display = "none";
+    return;
+  }
+
+  emptyDashboard.style.display = "none";
+  taskBoard.style.display = "grid";
+  chartSection.style.display = "block";
+  statsSection.style.display = "grid";
+  toolbar.style.display = "flex";
 
   renderTasks(allTasks);
-
   updateStats(allTasks);
+  renderChart(allTasks);
 }
 
-// Render Task
+/* =========================
+   RENDER TASK
+========================= */
 function renderTasks(tasks) {
   const pending = document.getElementById("pendingColumn");
-
   const progress = document.getElementById("progressColumn");
   //const completedClass = task.status === "Completed" ? "completed-task" : "";
   const completed = document.getElementById("completedColumn");
+
+  if (tasks.length === 0) {
+    pending.innerHTML = `
+    <div class="empty-state">
+  <div class="empty-icon">🚀</div>
+
+  <h3>Your workspace is empty</h3>
+
+  <p>
+    Create your first task to start
+    tracking projects and productivity.
+  </p>
+
+  <button onclick="openModal()">
+    Create First Task
+  </button>
+</div>
+  `;
+    return;
+  }
 
   pending.innerHTML = "";
   progress.innerHTML = "";
   completed.innerHTML = "";
 
   tasks.forEach((task) => {
+    const tagHTML = (task.tags || [])
+      .map((tag) => `<span class="tag">${tag}</span>`)
+      .join("");
     const completedClass = task.status === "Completed" ? "completed-task" : "";
 
     const card = `
@@ -152,18 +231,50 @@ ondragstart="dragTask(event,'${task.id}')"
 ondragend="dragEnd(event)"
 >
 
-<h3>${task.title}</h3>
+<label class="task-check-wrapper">
+ <input
+    type="checkbox"
+    class="task-check"
+    onchange="toggleComplete('${task.id}')"
+    ${task.status === "Completed" ? "checked" : ""}
+  >
+  <span></span>
+</label>
 
-<p>${task.description || ""}</p>
+<div class="task-header">
+  <div><br>
+    <h3>${task.title}</h3>
+    <p class="task-desc">
+      ${task.description || "No description"}
+    </p>
+  </div>
+</div>
 
-<p>${task.due_date || "-"}</p>
+<div class="task-info">
 
-<span class="${task.priority.toLowerCase()}">
-${task.priority}
-</span>
+  <span class="task-category">
+     ${task.category}
+  </span>
+
+  <span class="task-date">
+    📅 ${task.due_date || "No date"}
+  </span>
+
+</div>
+
+<div class="task-footer">
+
+  <span class="priority ${task.priority.toLowerCase()}">
+    ${task.priority}
+  </span>
+
+  <div class="tags">
+    ${tagHTML}
+  </div>
+
+</div>
 
 <div class="task-actions">
-
 <button onclick="editTask('${task.id}')">
 Edit
 </button>
@@ -187,10 +298,39 @@ Delete
   });
 }
 
-// Update Task
+/* =========================
+   TOGGLE
+========================= */
+async function toggleComplete(id) {
+  const task = allTasks.find((t) => t.id === id);
+
+  if (!task) return;
+
+  const newStatus = task.status === "Completed" ? "Pending" : "Completed";
+  task.status = newStatus;
+
+  renderTasks(allTasks);
+  updateStats(allTasks);
+  renderChart(allTasks);
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .update({
+      status: newStatus,
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert(error.message);
+    loadTasks();
+  }
+}
+
+/* =========================
+   UPDATE STAT
+========================= */
 function updateStats(tasks) {
   const today = new Date();
-
   const overdue = tasks.filter((task) => {
     if (!task.due_date) return false;
 
@@ -200,24 +340,20 @@ function updateStats(tasks) {
   }).length;
 
   const total = tasks.length;
-
   const pending = tasks.filter((task) => task.status === "Pending").length;
-
   const progress = tasks.filter((task) => task.status === "In Progress").length;
-
   const completed = tasks.filter((task) => task.status === "Completed").length;
 
   document.getElementById("totalTasks").textContent = total;
-
   document.getElementById("pendingTasks").textContent = pending;
-
   document.getElementById("progressTasks").textContent = progress;
-
   document.getElementById("completedTasks").textContent = completed;
-  document.getElementById("overdueTasks").textContent = overdue;
+  //document.getElementById("overdueTasks").textContent = overdue;
 }
 
-//Delete Task
+/* =========================
+   DELETE
+========================= */
 async function deleteTask(id) {
   const confirmDelete = confirm("Delete this task?");
 
@@ -233,7 +369,9 @@ async function deleteTask(id) {
   loadTasks();
 }
 
-//Edit Task
+/* =========================
+   EDIT
+========================= */
 async function editTask(id) {
   const { data, error } = await supabaseClient
     .from("tasks")
@@ -249,26 +387,22 @@ async function editTask(id) {
   editingTaskId = id;
 
   document.getElementById("title").value = data.title;
-
   document.getElementById("description").value = data.description || "";
-
   document.getElementById("category").value = data.category;
-
   document.getElementById("priority").value = data.priority;
-
   document.getElementById("status").value = data.status;
-
-  document.getElementById("relatedPerson").value = data.related_person || "";
-
+  //document.getElementById("relatedPerson").value = data.related_person || "";
   document.getElementById("dueDate").value = data.due_date || "";
+  document.getElementById("tagsInput").value = data.tags?.join(", ") || "";
 
   openModal();
 }
 
-// Filter Task
+/* =========================
+   FILTER
+========================= */
 function filterTasks() {
   const keyword = document.getElementById("searchInput").value.toLowerCase();
-
   const status = document.getElementById("statusFilter").value;
 
   let filtered = allTasks.filter((task) => {
@@ -282,7 +416,6 @@ function filterTasks() {
   });
 
   // SORT
-
   const sort = document.getElementById("sortFilter").value;
 
   if (sort === "newest") {
@@ -300,11 +433,12 @@ function filterTasks() {
   }
 
   renderTasks(filtered);
-
   updateStats(filtered);
 }
 
-// Dark Mode
+/* =========================
+   DARK
+========================= */
 function toggleTheme() {
   document.body.classList.toggle("dark");
 
@@ -314,7 +448,9 @@ function toggleTheme() {
   );
 }
 
-// DOM
+/* =========================
+   DOM
+========================= */
 document.addEventListener("DOMContentLoaded", async () => {
   const {
     data: { session },
@@ -333,7 +469,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadUser();
 });
 
-// Drag
+/* =========================
+   DRAG
+========================= */
 let draggedTaskId = null;
 
 function dragTask(event, taskId) {
@@ -352,7 +490,6 @@ function allowDrop(event) {
 
 async function dropTask(event, newStatus) {
   event.preventDefault();
-
   event.currentTarget.classList.remove("drag-over");
 
   if (!draggedTaskId) return;
@@ -363,7 +500,7 @@ async function dropTask(event, newStatus) {
     task.status = newStatus;
 
     renderTasks(allTasks);
-
+    renderChart(allTasks);
     updateStats(allTasks);
   }
 
@@ -376,19 +513,67 @@ async function dropTask(event, newStatus) {
 
   if (error) {
     alert(error.message);
-
     loadTasks();
-
     return;
   }
-
+  renderChart(allTasks);
   draggedTaskId = null;
 }
 
 function dragEnter(event) {
+  event.preventDefault();
   event.currentTarget.classList.add("drag-over");
 }
 
 function dragLeave(event) {
   event.currentTarget.classList.remove("drag-over");
+}
+
+function allowDrop(event) {
+  event.preventDefault();
+}
+
+/* =========================
+   CHART
+========================= */
+function renderChart(tasks) {
+  const canvas = document.getElementById("taskChart");
+
+  if (!canvas) return;
+
+  const pending = tasks.filter((t) => t.status === "Pending").length;
+  const progress = tasks.filter((t) => t.status === "In Progress").length;
+  const completed = tasks.filter((t) => t.status === "Completed").length;
+
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  chartInstance = new Chart(canvas, {
+    type: "doughnut",
+
+    data: {
+      labels: ["Pending", "In Progress", "Completed"],
+
+      datasets: [
+        {
+          data: [pending, progress, completed],
+
+          backgroundColor: ["#fbbf24", "#6366f1", "#22c55e"],
+
+          borderWidth: 0,
+        },
+      ],
+    },
+
+    options: {
+      responsive: true,
+
+      plugins: {
+        legend: {
+          position: "bottom",
+        },
+      },
+    },
+  });
 }

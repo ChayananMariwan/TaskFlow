@@ -9,20 +9,28 @@
     <link rel="stylesheet" href="css/dashboard.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
 
   <body>
     <div class="container">
-      <header>
+      <header class="topbar">
         <div class="hero">
-          <div>
-            <h1>Welcome back</h1>
-            <p>You have <span id="pendingTasks">0</span> pending tasks</p>
-          </div>
+          <span class="hero-badge"> TaskFlow </span>
+
+          <h1 id="welcomeText">Good Morning 👋</h1>
+
+          <p class="hero-desc">
+            Organize tasks, track progress, collaborate with teammates and stay
+            productive every day.
+          </p>
         </div>
 
         <div class="user-section">
-          <button id="themeBtn" onclick="toggleTheme()">🌙</button>
+          <button id="themeBtn" class="icon-btn" onclick="toggleTheme()">
+            🌙
+          </button>
+
           <div class="user-info">
             <span id="userEmail">Loading...</span>
           </div>
@@ -31,7 +39,11 @@
         </div>
       </header>
 
-      <section class="stats">
+      <div id="chartSection">
+        <canvas id="taskChart"></canvas>
+      </div>
+
+      <section class="stats" id="statsSection">
         <div class="card total-card">
           <h3>Total Tasks</h3>
           <p id="totalTasks">0</p>
@@ -63,32 +75,42 @@
 
         <select id="statusFilter" onchange="filterTasks()">
           <option value="All">All Status</option>
-
           <option value="Pending">Pending</option>
-
           <option value="In Progress">In Progress</option>
-
           <option value="Completed">Completed</option>
         </select>
 
         <select id="sortFilter" onchange="filterTasks()">
           <option value="newest">Newest</option>
-
           <option value="oldest">Oldest</option>
-
           <option value="priority">Priority</option>
-          <span class="priority ${task.priority.toLowerCase()}">
-            ${task.priority}
-          </span>
         </select>
+
         <button class="add-btn" onclick="openModal()">+ Add Task</button>
       </section>
 
-      <section class="board">
+      <section id="emptyDashboard" class="empty-dashboard">
+        <div class="empty-content">
+          <div class="empty-illustration">📋</div>
+
+          <h2>No Tasks Yet</h2>
+
+          <p>
+            Start organizing your work by creating your first task. Track
+            progress, manage priorities and stay productive.
+          </p>
+
+          <button onclick="openModal()" class="add-btn">
+            + Create First Task
+          </button>
+        </div>
+      </section>
+
+      <section class="board" id="taskBoard">
         <div class="column pending">
           <h2>
             Pending
-            <span id="pendingCount">0</span>
+            <span id="pendingCount"></span>
           </h2>
 
           <div
@@ -114,7 +136,7 @@
 
         <div class="column completed">
           <h2>Completed</h2>
-          <div class="task-card ${completedClass}"></div>
+
           <div
             id="completedColumn"
             ondragenter="dragEnter(event)"
@@ -154,7 +176,11 @@
             <option>Completed</option>
           </select>
 
-          <input type="text" id="relatedPerson" placeholder="Related Person" />
+          <input
+            type="text"
+            id="tagsInput"
+            placeholder="Tags (comma separated)"
+          />
 
           <input type="date" id="dueDate" />
 
